@@ -151,30 +151,70 @@ void moverPeca(EstadoJogo *e, int dir) {
         e->pecaAtual.x -= dir;                          // Se sim, remove o deslocamento imediatamente. A peça não se move e o usuário sente a parede.
 }
 
-// Executa um giro de 90 graus da matriz da peça na memória.
-// [Puxa de: tetris.h] Recebe o EstadoJogo.
+
+// Executa o giro da peça adaptando a "caixa de colisão" (Bounding Box) dependendo do formato dela.
+// [Puxa de: tetris.h] A função recebe o ponteiro geral do EstadoJogo.
 void rotacionarPeca(EstadoJogo *e) {
-    int temp[4][4], orig[4][4];                         // Matrizes locais: uma pra processar a rotação e outra pra fazer backup da original.
-    int l, c;                                           // Iteradores.
-    memcpy(orig, e->pecaAtual.matriz, sizeof(orig));    // Tira um "print" do formato atual da peça e guarda em 'orig'.
     
-    for (l = 0; l < 4; l++)                             // Itera as linhas.
-        for (c = 0; c < 4; c++)                         // Itera as colunas.
-            temp[c][3-l] = e->pecaAtual.matriz[l][c];   // Aplica a fórmula de transposição de matriz 2D (tombando ela pro lado) gravando em 'temp'.
-            
-    memcpy(e->pecaAtual.matriz, temp, sizeof(temp));    // Pega a peça tombada no 'temp' e injeta na matriz da peça em jogo.
+    // Cria matrizes temporárias na memória local. O `= {0}` é VITAL aqui:
+    // Como algumas peças giram em 3x3, a 4ª linha/coluna ficaria com "lixo" de memória. O {0} garante a matriz limpa.
+    int temp[4][4] = {0}, orig[4][4]; 
     
-    if (verificarColisao(e->tabuleiro, &e->pecaAtual)) { // [Função Interna] Verifica se, ao girar, uma quina da peça não entalou na parede lateral.
-        int kicks[] = {1, -1, 2, -2}, k;                // Wall Kick: Sistema de empurrões. Tenta afastar a peça em X para 1 dir, 1 esq, 2 dir, 2 esq.
-        int ok = 0;                                     // Flag de sucesso do empurrão.
-        for (k = 0; k < 4 && !ok; k++) {                // Testa cada um dos 4 empurrões até 'ok' ficar positivo.
-            e->pecaAtual.x += kicks[k];                 // Adiciona a força do empurrão atual.
-            if (!verificarColisao(e->tabuleiro, &e->pecaAtual)) ok = 1; // [Função Interna] Avalia se o empurrão livrou a peça. Se sim, marca OK e para o loop.
-            else e->pecaAtual.x -= kicks[k];            // Se continuou colidindo, desfaz o empurrão pra tentar a próxima força no laço.
-        }
-        if (!ok) memcpy(e->pecaAtual.matriz, orig, sizeof(orig)); // Bateu em tudo e não conseguiu se acomodar? Restaura o backup 'orig' (aborta a rotação).
+    // Declara os iteradores padrão de linhas e colunas.
+    int l, c;
+    
+    // Faz um backup exato da matriz da peça antes de tentar o giro. Se der errado, usamos a 'orig' para reverter.
+    memcpy(orig, e->pecaAtual.matriz, sizeof(orig));
+
+    // [Puxa de: tetris.h] Avalia através do 'enum' se a peça atual é o Quadrado (O).
+    if (e->pecaAtual.tipo == PECA_O) {
+        return; // O quadrado não muda visualmente ao girar. Sai da função instantaneamente poupando CPU.
+        
+    // [Puxa de: tetris.h] Avalia se a peça atual é a Reta/Barra (I).
+    } else if (e->pecaAtual.tipo == PECA_I) {
+        // Giro 4x4 clássico apenas para a barra, pois ela usa toda a extensão da matriz.
+        for (l = 0; l < 4; l++)
+            for (c = 0; c < 4; c++)
+                // Fórmula de rotação de matriz quadrada: a nova coluna recebe a antiga linha inversa.
+                temp[c][3-l] = e->pecaAtual.matriz[l][c];
+                
+    // Se não for 'O' e não for 'I', restaram as peças 'T', 'L', 'J', 'S' e 'Z'.
+    } else {
+        // Giro 3x3 apertado. Elas rodam no próprio eixo para não bater atoa nas paredes (permite o T-Spin).
+        for (l = 0; l < 3; l++) // IMPORTANTE: O laço de leitura só vai até o índice 2!
+            for (c = 0; c < 3; c++)
+                // A fórmula ajusta o limite superior da inversão de '3-l' para '2-l'.
+                temp[c][2-l] = e->pecaAtual.matriz[l][c];
     }
-}
+
+    // Pega o desenho que foi montado dentro de 'temp' e injeta na matriz da peça que está em jogo.
+    memcpy(e->pecaAtual.matriz, temp, sizeof(temp));
+    
+    // [Função Interna] Chama a física do tetris.c. Mesmo girando perfeito, a quina da peça recém-girada bateu na parede?
+    if (verificarColisao(e->tabuleiro, &e->pecaAtual)) {
+        
+        // Wall Kick: Sistema que tenta "chutar" a peça para o lado se ela entalar durante o giro.
+        int kicks[] = {1, -1, 2, -2}, k; // Array com as tentativas de empurrão em X: +1, -1, +2, -2.
+        int ok = 0;                      // Flag de sucesso. Se virar 1, o empurrão funcionou.
+        
+        // Loop de testes. O '!ok' garante que o loop pare na mesma hora se algum chute der certo.
+        for (k = 0; k < 4 && !ok; k++) {
+            
+            // Empurra o X da peça com a força do chute atual do array.
+            e->pecaAtual.x += kicks[k];
+            
+            // [Função Interna] Se testar a colisão agora e der FALSO (0), o caminho está livre! Seta 'ok = 1'.
+            if (!verificarColisao(e->tabuleiro, &e->pecaAtual)) ok = 1;
+            
+            // Se bateu, desfaz esse empurrão específico subtraindo a força, para tentar a próxima força do laço.
+            else e->pecaAtual.x -= kicks[k];
+        }
+        
+        // Fim das tentativas de Wall Kick. A flag 'ok' continua sendo 0 (Falso)?
+        // Significa que não há espaço físico viável. Cancela tudo e devolve a matriz do backup 'orig' pra peça.
+        if (!ok) memcpy(e->pecaAtual.matriz, orig, sizeof(orig));
+    }
+} // Fim da função.
 
 // Desce a peça violentamente até onde der e carimba ela (Spacebar).
 // [Puxa de: tetris.h] Recebe o EstadoJogo.
