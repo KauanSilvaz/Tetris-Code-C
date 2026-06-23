@@ -1,24 +1,23 @@
-#include <stdio.h>                       // Inclui a biblioteca padrão de entrada e saída (usada para printf, fopen, etc.).
-#include <stdlib.h>                      // Inclui a biblioteca padrão do C (usada para a função system).
-#include <string.h>                      // Inclui a biblioteca de manipulação de strings.
-#include <conio.h>                       // Inclui biblioteca do Windows para entrada de console (fornece _kbhit e _getch).
-#include <windows.h>                     // Inclui a API do Windows (necessária para manipular o terminal, cores e cursor).
-#include "tetris.h"                      // Inclui as definições e estruturas principais do jogo Tetris (EstadoJogo, Peca, etc.).
-#include "interface.h"                   // Inclui os protótipos das funções definidas neste próprio arquivo.
+#include <stdio.h>                           // Inclui a biblioteca padrão de entrada e saída (usada para printf, fopen, etc.).
+#include <stdlib.h>                          // Inclui a biblioteca padrão do C (usada para a função system).
+#include <string.h>                          // Inclui a biblioteca de manipulação de strings.
+#include <conio.h>                           // Inclui biblioteca do Windows para entrada de console (fornece _kbhit e _getch).
+#include <windows.h>                         // Inclui a API do Windows (necessária para manipular o terminal, cores e cursor).
+#include "tetris.h"                          // Inclui as definições e estruturas principais do jogo Tetris (EstadoJogo, Peca, etc.).
+#include "interface.h"                       // Inclui os protótipos das funções definidas neste próprio arquivo.
 
-static HANDLE hConsole;                  // Declara uma variável estática (global apenas para este arquivo) para controlar o console do Windows.
-
-// Limpa a tela                          // Comentário original descrevendo a função.
-void limparTela(void) {                  // Define a função 'limparTela', que não recebe argumentos nem retorna valores.
-    system("cls");                       // Chama o comando do sistema operacional ("cls" no Windows) para limpar o texto do terminal.
-}                                        // Fim da função 'limparTela'.
+static HANDLE hConsole;                      // Declara uma variável estática (global apenas para este arquivo) para controlar o console do Windows.
+ 
+                                             // Limpa a tela                            
+void limparTela(void) {                      // Define a função 'limparTela', que não recebe argumentos nem retorna valores.
+    system("cls");                           // Chama o comando do sistema operacional ("cls" no Windows) para limpar o texto do terminal.
+}                                            // Fim da função 'limparTela'.
 
 // Move o cursor para linha/coluna usando API do Windows // Comentário original descrevendo a função.
 void moverCursor(int linha, int coluna) { // Define a função 'moverCursor', recebendo as coordenadas de linha e coluna.
     COORD pos;                           // Declara uma estrutura 'COORD' (da API do Windows) para armazenar coordenadas X e Y.
     pos.X = (SHORT)(coluna - 1);         // Define a coordenada X (coluna). Subtrai 1 porque o console no Windows começa no índice 0.
-    pos.Y = (SHORT)(linha - 1);          // Define a coordenada Y (linha). Subtrai 1 pelo mesmo motivo (índice base 0).
-    SetConsoleCursorPosition(hConsole, pos); // Move o cursor físico do terminal para a posição especificada em 'pos'.
+       SetConsoleCursorPosition(hConsole, pos); // Move o cursor físico do terminal para a posição especificada em 'pos'.
 }                                        // Fim da função 'moverCursor'.
 
 // Esconde o cursor (sem piscar durante o jogo) // Comentário original.
@@ -163,21 +162,51 @@ void desenharMenu(void) {                        // Define a função que desenh
     fflush(stdout);                              // Força a exibição imediata da interface.
 }                                                // Fim da função 'desenharMenu'.
 
-void desenharRanking(void) {                     // Define a função que exibe a tabela de recordes.
-    FILE *arq;                                   // Declara um ponteiro de arquivo para podermos ler o arquivo de recordes.
-    char nome[50];                               // Cria um vetor de caracteres temporário para guardar o nome dos jogadores lidos do arquivo.
-    int pts, pos=1;                              // Declara inteiros para ler a pontuação lida ('pts') e contar a posição atual do ranking ('pos').
-    limparTela();                                // Limpa completamente a tela do terminal.
-    printf("\n  === RECORDES ===\n\n");          // Imprime o cabeçalho da seção de Ranking.
-    arq = fopen("ranking.txt", "r");             // Tenta abrir o arquivo "ranking.txt" em modo de leitura ('r').
-    if (!arq) {                                  // Verifica se o ponteiro de arquivo é Nulo (o arquivo não existe ou houve erro).
-        printf("  Nenhum recorde ainda.\n");     // Se não existe, avisa que não há recordes salvos.
-    } else {                                     // Caso o arquivo tenha sido aberto com sucesso:
-        while (fscanf(arq, "%49s %d", nome, &pts) == 2 && pos <= 10) // Lê uma string (nome com max 49 char) e um int (pts) repetidamente até o fim, limitando à exibição dos top 10.
-            printf("  %2d. %-15s %d\n", pos++, nome, pts); // Formata e imprime a linha do ranking. '%2d' (posição), '%-15s' (nome alinhado a esquerda) e '%d' (pontos), incrementando 'pos'.
-        fclose(arq);                             // Fecha o arquivo após terminar a leitura para liberar os recursos do sistema operacional.
-    }                                            // Fim do bloco if/else do arquivo.
-    printf("\n  ENTER para voltar...");         // Imprime a instrução indicando como sair dessa tela.
-    fflush(stdout);                              // Garante que o buffer de saída limpe logo o texto para a tela.
-    while (getchar() != '\n');                   // Trava a execução num laço consumindo os caracteres do teclado até que a pessoa pressione o 'ENTER' (caractere de nova linha).
-}                                                // Fim da função 'desenharRanking'.
+void desenharRanking(void) {
+    FILE *arq;
+    
+    // Cria uma estrutura temporária só para guardar os dados enquanto a gente ordena
+    typedef struct {
+        char nome[50];
+        int pontos;
+    } Recorde;
+    
+    Recorde recs[100]; // Suporta ler até 100 recordes do txt
+    int total = 0;     // Vai contar quantos recordes achamos no arquivo
+
+    limparTela();
+    printf("\n  === RECORDES ===\n\n");
+    
+    arq = fopen("ranking.txt", "r");
+    if (!arq) {
+        printf("  Nenhum recorde ainda.\n");
+    } else {
+        // 1. LER TODOS OS RECORDES: Lê do txt e joga pro nosso vetor 'recs'
+        while (total < 100 && fscanf(arq, "%49s %d", recs[total].nome, &recs[total].pontos) == 2) {
+            total++;
+        }
+        fclose(arq);
+
+        // 2. ORDENAR (Bubble Sort): Coloca do maior para o menor
+        for (int i = 0; i < total - 1; i++) {
+            for (int j = 0; j < total - i - 1; j++) {
+                if (recs[j].pontos < recs[j+1].pontos) {
+                    // Troca de lugar se o de baixo for maior que o de cima
+                    Recorde temp = recs[j];
+                    recs[j] = recs[j+1];
+                    recs[j+1] = temp;
+                }
+            }
+        }
+
+        // 3. EXIBIR: Mostra só os 10 primeiros (ou menos, se não tiver 10 jogadas salvas)
+        int limite = (total < 10) ? total : 10;
+        for (int i = 0; i < limite; i++) {
+            printf("  %2d. %-15s %d\n", i + 1, recs[i].nome, recs[i].pontos);
+        }
+    }
+    
+    printf("\n  ENTER para voltar...");
+    fflush(stdout);
+    while (getchar() != '\n');
+}                                              // Fim da função 'desenharRanking'.
