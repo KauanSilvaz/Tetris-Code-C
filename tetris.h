@@ -1,49 +1,45 @@
-// tetris.h                                      // Comentário original identificando o arquivo de cabeçalho.
-// Compilação: gcc main.c tetris.c interface.c -o tetris // Comentário original com a instrução de compilação via terminal.
+// tetris.h - Arquivo de cabeçalho principal contendo as regras de estrutura do jogo.
 
-#ifndef TETRIS_H                                 // Diretiva de pré-processador: "Se TETRIS_H não estiver definido". Evita múltiplas inclusões deste mesmo arquivo (Include Guard).
-#define TETRIS_H                                 // Define a macro TETRIS_H, fechando o par de proteção para a próxima vez que o compilador ver este arquivo.
+#ifndef TETRIS_H                 // Include Guard: Verifica se TETRIS_H não foi definido ainda para evitar dupla inclusão.
+#define TETRIS_H                 // Define a macro TETRIS_H, ativando a proteção.
 
-#define COLS 10   // largura do poço             // Define uma constante macro 'COLS' valendo 10, que determina a largura padrão da matriz do tabuleiro.
-#define ROWS 20   // altura do poço              // Define uma constante macro 'ROWS' valendo 20, que determina a altura padrão do poço do Tetris.
+#define COLS 10                  // Define a constante de largura do tabuleiro (10 colunas). Usado amplamente por tetris.c e interface.c.
+#define ROWS 20                  // Define a constante de altura do tabuleiro (20 linhas). Usado por tetris.c e interface.c.
 
-// Os 7 tipos de peça do Tetris                  // Comentário original.
-typedef enum {                                   // Inicia a definição de uma enumeração (enum) criando um novo tipo de dado para nomear valores sequenciais inteiros.
-    PECA_I, PECA_J, PECA_L, PECA_O,              // Constantes enumeradas representando cada formato de peça (o C atribui automaticamente os valores 0, 1, 2, 3).
-    PECA_S, PECA_T, PECA_Z,                      // Constantes enumeradas para o restante das peças (recebem valores 4, 5, 6).
-    NUM_PECAS                                    // Truque do C: como é o último elemento da lista, receberá o valor 7, que magicamente representa o número total de peças do jogo.
-} TipoPeca;                                      // Apelida essa estrutura de enumeração recém-criada como 'TipoPeca' para ser usada como tipo de variável.
+typedef enum {                   // Cria um tipo enumerado (enum) para representar as 7 peças do Tetris como números.
+    PECA_I, PECA_J, PECA_L, PECA_O, // Valores de 0 a 3 mapeados para as respectivas peças.
+    PECA_S, PECA_T, PECA_Z,      // Valores de 4 a 6 mapeados para as respectivas peças.
+    NUM_PECAS                    // Recebe o valor 7. Por ser o último da lista, serve magicamente para definir a quantidade total de peças.
+} TipoPeca;                      // Nomeia esse novo tipo de dado como 'TipoPeca'.
 
-// Representa a peça ativa                       // Comentário original.
-typedef struct {                                 // Inicia a definição de uma estrutura (struct) para agrupar todas as variáveis que compõem uma peça.
-    int matriz[4][4];  // formato da peça em grade 4x4 // Declara uma matriz 4x4 bidimensional para guardar o "desenho" físico/espacial da peça (onde tem bloco e onde é vazio).
-    int x, y;          // posição no tabuleiro   // Declara variáveis inteiras para armazenar a coordenada X (coluna) e Y (linha) em que a peça se encontra no poço geral.
-    TipoPeca tipo;                               // Declara uma variável do tipo 'TipoPeca' (nossa enumeração) para identificar rapidamente qual a forma original do bloco.
-    int cor;           // código de cor ANSI     // Declara um inteiro para armazenar a cor da peça que será desenhada no terminal.
-} Peca;                                          // Nomeia a estrutura como o tipo 'Peca'.
+typedef struct {                 // Define a estrutura que molda os dados de uma Peça em jogo.
+    int matriz[4][4];            // Matriz 4x4 que guarda o desenho espacial da peça (0 para vazio, 1 para bloco sólido).
+    int x, y;                    // Coordenadas globais da peça dentro da matriz do tabuleiro principal.
+    TipoPeca tipo;               // Usa o enum criado acima para identificar a forma da peça.
+    int cor;                     // Guarda o código numérico ANSI da cor da peça.
+} Peca;                          // Nomeia esta estrutura como 'Peca'.
 
-// Todo o estado de uma partida                  // Comentário original.
-typedef struct {                                 // Inicia a definição de uma estrutura aglutinadora (o "Save State" do seu jogo).
-    int **tabuleiro;   // matriz 2D alocada dinamicamente (ponteiro!) // Declara um ponteiro para ponteiro (int**). Ele servirá para mapear a nossa matriz [20][10] na memória dinâmica (heap).
-    Peca pecaAtual;                              // Variável estruturada que guarda os dados exatos da peça que o jogador está controlando na queda.
-    Peca proxima;                                // Variável estruturada que guarda a peça gerada em espera para ser exibida no visor lateral.
-    int pontuacao;                               // Variável inteira que acumula o placar (score) do jogador durante a partida.
-    int nivel;                                   // Variável inteira para determinar o nível de dificuldade atual (velocidade da gravidade).
-    int linhas;                                  // Variável inteira que contabiliza o número bruto de linhas destruídas desde o início.
-    int gameOver;                                // Variável inteira usada como flag (0 ou 1) para sinalizar se a tela lotou e o jogador perdeu.
-} EstadoJogo;                                    // Nomeia essa super-estrutura como 'EstadoJogo', facilitando o trânsito dessas informações pelas funções.
+typedef struct {                 // Define a super-estrutura que guarda o "Save State" da partida em andamento.
+    int **tabuleiro;             // Ponteiro duplo para alocar o grid 2D do tabuleiro dinamicamente na memória RAM (heap).
+    Peca pecaAtual;              // Guarda os dados da peça que o jogador está ativamente controlando.
+    Peca proxima;                // Guarda os dados da peça reserva que aparece no display lateral.
+    int pontuacao;               // O score acumulado do jogador.
+    int nivel;                   // A dificuldade atual (que afeta diretamente a velocidade da gravidade no main.c).
+    int linhas;                  // Contador bruto de quantas linhas foram destruídas na partida.
+    int gameOver;                // Flag booleana (0 ou 1) que serve para avisar o loop do main.c se o jogador perdeu.
+} EstadoJogo;                    // Nomeia esta estrutura principal como 'EstadoJogo'.
 
-// Protótipos das funções de tetris.c            // Comentário original indicando a seção de "sumário" das ações do jogo.
-void inicializarJogo(EstadoJogo *e);             // Assinatura da função que prepara as variáveis da partida e aloca o tabuleiro na memória (recebe ponteiro do estado).
-void liberarJogo(EstadoJogo *e);                 // Assinatura da função que limpa as matrizes dinâmicas da memória quando o programa é encerrado.
-Peca gerarPeca(void);                            // Assinatura da função que constrói e retorna uma estrutura do tipo 'Peca' com formato e cor sorteados aleatoriamente.
-int  verificarColisao(int **tabuleiro, Peca *p); // Assinatura da função que calcula se a matriz da peça bate nas paredes ou blocos antigos do tabuleiro (retorna 0 ou 1).
-void fixarPeca(int **tabuleiro, Peca *p);        // Assinatura da função que "carimba" a matriz da peça no tabuleiro principal permanentemente quando ela cai no chão.
-int  eliminarLinhas(int **tabuleiro);            // Assinatura da função que varre as linhas, elimina as que estão 100% cheias, desce as demais e retorna o total quebrado.
-void atualizarPontuacao(EstadoJogo *e, int linhas); // Assinatura da função que soma os pontos com base no multiplicador de linhas apagadas juntas e atualiza o nível.
-int  descerPeca(EstadoJogo *e);                  // Assinatura da função que força a peça para o próximo índice de Y; avalia se precisou fixá-la na nova posição.
-void moverPeca(EstadoJogo *e, int dir);          // Assinatura da função que desloca a peça no eixo X (laterais) baseando-se no valor de 'dir' (-1 ou +1).
-void rotacionarPeca(EstadoJogo *e);              // Assinatura da função que altera a matriz interna 4x4 da peça para espelhá-la 90 graus (e aplica empurrões para não bugar na parede).
-void dropPeca(EstadoJogo *e);                    // Assinatura da função que laça a gravidade infinitamente, socando a peça até o fundo num piscar de olhos e adicionando bônus.
+// Protótipos (assinaturas) das funções lógicas que estão escritas de fato dentro de 'tetris.c':
+void inicializarJogo(EstadoJogo *e);                // Prepara a memória dinâmica e as variáveis iniciais para uma nova partida.
+void liberarJogo(EstadoJogo *e);                    // Limpa a memória RAM alocada para o tabuleiro ao fechar o jogo.
+Peca gerarPeca(void);                               // Sorteia e monta uma peça aleatória com sua respectiva cor e formato original.
+int  verificarColisao(int **tabuleiro, Peca *p);    // Checa se a peça está sobrepondo paredes ou blocos acumulados (retorna 0 para livre, 1 para colisão).
+void fixarPeca(int **tabuleiro, Peca *p);           // Transfere a cor da peça para a matriz do tabuleiro quando ela atinge o chão de vez.
+int  eliminarLinhas(int **tabuleiro);               // Varre o tabuleiro, deleta linhas cheias, puxa os blocos de cima para baixo e retorna o combo quebrado.
+void atualizarPontuacao(EstadoJogo *e, int linhas); // Calcula o score ganho baseado no combo de linhas e atualiza o nível a cada 10 linhas.
+int  descerPeca(EstadoJogo *e);                     // Aplica o "tick" de gravidade natural empurrando a peça 1 bloco para baixo.
+void moverPeca(EstadoJogo *e, int dir);             // Tenta mover a peça horizontalmente (para a esquerda ou direita).
+void rotacionarPeca(EstadoJogo *e);                 // Gira a matriz 4x4 da peça em 90 graus, acionando o sistema de empurrão se bater na parede (Wall Kick).
+void dropPeca(EstadoJogo *e);                       // Derruba a peça instantaneamente até o repouso absoluto (Hard Drop).
 
-#endif                                           // Fim da área protegida pelo Include Guard iniciado no topo do arquivo.
+#endif                           // Fecha o bloco de proteção do Include Guard iniciado na linha 3.
